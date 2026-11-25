@@ -1,0 +1,37 @@
+# Overlapping shifts (a job can run at most 6 hours): every 3 hours, each records 190 minutes and
+# then waits up to 8 for its last markets to settle. The recorder stops on its own after the study
+# window (STUDY_END in record.ts).
+name: Record
+
+on:
+  schedule:
+    - cron: "17 */3 * * *"
+  workflow_dispatch:
+    inputs:
+      minutes:
+        description: How long to record
+        default: "190"
+
+permissions:
+  contents: read
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    timeout-minutes: 210
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Record
+        env:
+          STUDY_MINUTES: ${{ inputs.minutes || '190' }}
+        run: node --experimental-strip-types --no-warnings record.ts
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: btc5m-${{ github.run_id }}
+          path: data/
+          if-no-files-found: ignore
+          retention-days: 30
