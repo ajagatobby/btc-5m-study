@@ -1,6 +1,7 @@
-# Overlapping shifts (a job can run at most 6 hours): every 3 hours, each records 190 minutes and
-# then waits up to 8 for its last markets to settle. The recorder stops on its own after the study
-# window (STUDY_END in record.ts).
+# Back-to-back shifts (a job can run at most 6 hours): each records 190 minutes, waits up to 8 for
+# its last markets to settle, saves its data and then starts the next shift itself, until the study
+# ends (2026-12-02 16:00Z, STUDY_END in record.ts). GitHub's schedule often skips runs on a new
+# repo, so the cron only revives the chain if it ever breaks; one shift runs at a time.
 name: Record
 
 on:
@@ -14,6 +15,11 @@ on:
 
 permissions:
   contents: read
+  actions: write
+
+concurrency:
+  group: record
+  cancel-in-progress: false
 
 jobs:
   record:
@@ -35,3 +41,9 @@ jobs:
           path: data/
           if-no-files-found: ignore
           retention-days: 30
+      - name: Start the next shift
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$(date +%s)" -lt 1796227200 ]; then gh workflow run record.yml -R "$GITHUB_REPOSITORY"; fi
